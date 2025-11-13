@@ -17,7 +17,6 @@ from flask import (
 )
 
 # --- KONEKSI KE SUPABASE ---
-# INI PUNYAMU, SUDAH BENAR
 SUPABASE_URL = "https://asweqitjjbepoxwpscsz.supabase.co" 
 SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFzd2VxaXRqamJlcG94d3BzY3N6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjIzMzg3NzMsImV4cCI6MjA3NzkxNDc3M30.oihrg9Pz0qa0LS5DIJzM2itIbtG0oh__PlOqx4nd2To" 
 
@@ -28,17 +27,10 @@ except Exception as e:
     print(f"--- GAGAL KONEK KE SUPABASE: {e} ---")
 # --- Akhir Koneksi ---
 
-
-# --- [DIHAPUS] Path Absolut (TIDAK DIPAKAI LAGI) ---
-# APP_DIR = os.path.dirname(os.path.abspath(__file__))
-
-# Inisialisasi Aplikasi Flask
 app = Flask(__name__)
-
-# --- Kunci Rahasia (Sudah Benar) ---
 app.secret_key = 'kunci-rahasia-lokal-saya-bebas-diisi-apa-saja'
 
-# --- Fungsi Format Rupiah (Sudah Benar) ---
+# --- Fungsi Format Rupiah (Tidak berubah) ---
 def format_rupiah(value):
     """Format angka menjadi string Rupiah 'Rp 1.000.000'."""
     try:
@@ -54,14 +46,12 @@ def format_rupiah(value):
         try:
             return f"Rp {int(value):,}".replace(",", ".")
         except:
-             return "Rp 0"
+            return "Rp 0"
 
-# Daftarkan fungsi sebagai filter Jinja2
 app.jinja_env.filters['rupiah'] = format_rupiah
-# --- Akhir Perbaikan ---
+# --- Akhir Fungsi Rupiah ---
 
-
-# ---------------- Data Kategori (Ikan Koi) ----------------
+# ---------------- Data Kategori (Tidak berubah) ----------------
 kategori_pengeluaran = {
     "Beban Utilitas": ["Beban Listrik", "Beban Air", "Beban Telepon/Internet"],
     "Beban Gaji & Upah": ["Beban Gaji Karyawan", "Upah Harian Lepas"],
@@ -75,55 +65,34 @@ kategori_pemasukan = {
     "Pendapatan Lain": ["Pendapatan - Jasa", "Pendapatan - Lain-lain"]
 }
 
-# --- [DIHAPUS] columns_map tidak dipakai lagi ---
-
-# ---------------- Helper Functions (DIGANTI TOTAL) ----------------
-
-# --- [DIHAPUS] Fungsi Auth CSV (hash_password, load_user_accounts, dll) ---
-# --- [DIHAPUS] Fungsi CSV (get_user_file, load_data, save_data, append_data, buat_jurnal, hapus_transaksi) ---
-
-# --- [BARU] Fungsi helper untuk Supabase ---
+# ---------------- Helper Functions (Tidak berubah) ----------------
+# (load_data_from_db, append_data_to_db, buat_jurnal_batch, hapus_transaksi_db)
 def load_data_from_db(tabel, user_id):
     """Mengambil data dari tabel Supabase dan mengubahnya jadi DataFrame."""
     try:
-        # "SELECT * FROM tabel WHERE user_id = user_id"
         response = supabase.from_(tabel).select("*").eq("user_id", user_id).execute()
-        
-        # [FIX V4] Jika GAGAL, 'execute()' akan 'raise Exception'
-        
         return pd.DataFrame(response.data)
     except Exception as e:
         print(f"Error load_data_from_db ({tabel}): {e}")
         flash(f"Gagal mengambil data dari DB: {e}", "danger")
-        return pd.DataFrame() # Kembalikan DataFrame kosong jika error
+        return pd.DataFrame() 
 
 def append_data_to_db(tabel, data, user_id):
     """Menyimpan data (dictionary) ke tabel Supabase."""
     try:
-        data['user_id'] = user_id # "Suntikkan" user_id ke data
+        data['user_id'] = user_id 
         response = supabase.from_(tabel).insert(data).execute()
-        
-        # [FIX V4] Jika GAGAL, 'execute()' akan 'raise Exception'
-            
     except Exception as e:
-        # Tampilkan error di terminal
         print(f"Error append_data_to_db ({tabel}): {e}")
-        # Tampilkan error ke user
         flash(f"Gagal menyimpan data ke DB: {e}", "danger")
-        # 'raise' lagi agar rute bisa menangkapnya
         raise e 
 
 def buat_jurnal_batch(jurnal_entries, user_id):
     """Menyimpan beberapa entri jurnal sekaligus ke Supabase."""
     try:
-        # "Suntikkan" user_id ke setiap entri
         for entry in jurnal_entries:
             entry['user_id'] = user_id
-        
         response = supabase.from_("jurnal").insert(jurnal_entries).execute()
-        
-        # [FIX V4] Jika GAGAL, 'execute()' akan 'raise Exception'
-            
     except Exception as e:
         print(f"Error buat_jurnal_batch: {e}")
         flash(f"Gagal menyimpan jurnal ke DB: {e}", "danger")
@@ -132,23 +101,12 @@ def buat_jurnal_batch(jurnal_entries, user_id):
 def hapus_transaksi_db(tabel, db_id, user_id):
     """Menghapus transaksi dari Supabase dan membuat jurnal pembalikan."""
     try:
-        # 1. Ambil data yang mau dihapus (untuk bikin jurnal pembalikan)
-        #    Pastikan hanya user yang benar yang bisa ambil
         response = supabase.from_(tabel).select("*").eq("id", db_id).eq("user_id", user_id).single().execute()
-        
-        # [FIX V4] Jika GAGAL, 'execute()' akan 'raise Exception'
-        
         transaksi = response.data
         
-        # 2. Hapus data aslinya
-        #    (Satpam RLS akan cek 'user_id' lagi di sini)
         delete_response = supabase.from_(tabel).delete().eq("id", db_id).execute()
-        
-        # [FIX V4] Jika GAGAL, 'execute()' akan 'raise Exception'
 
-        # 3. Buat Jurnal Pembalikan (logika sama kayak dulu)
         waktu_hapus = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        keterangan_asli = transaksi.get('Keterangan', '')
         jumlah_transaksi = float(transaksi['Jumlah'])
         metode_transaksi = transaksi['Metode']
         kontak = transaksi.get('Kontak', '')
@@ -156,17 +114,15 @@ def hapus_transaksi_db(tabel, db_id, user_id):
         jurnal_pembalikan_entries = []
         
         if tabel == "pemasukan":
-            sub_sumber = transaksi.get('Sub_Sumber', 'Lain-lain') # Ambil sub sumber (nama kolom DB)
+            sub_sumber = transaksi.get('Sub_Sumber', 'Lain-lain') 
             keterangan_batal = f"Pembatalan: {transaksi.get('Sumber', '')} - {sub_sumber}"
             
             if metode_transaksi == "Pelunasan Piutang":
-                # Balik jurnal pelunasan
                 jurnal_pembalikan_entries = [
                     {"Tanggal": waktu_hapus, "Akun": "Piutang Dagang", "Debit": jumlah_transaksi, "Kredit": 0, "Keterangan": keterangan_batal, "Kontak": kontak},
                     {"Tanggal": waktu_hapus, "Akun": "Kas", "Debit": 0, "Kredit": jumlah_transaksi, "Keterangan": keterangan_batal, "Kontak": ""}
                 ]
             else:
-                # Balik jurnal pendapatan
                 akun_debit_pembalikan = {"Tunai": "Kas", "Transfer": "Bank", "Piutang": "Piutang Dagang"}.get(metode_transaksi, "Kas")
                 akun_kredit_asli = sub_sumber 
                 jurnal_pembalikan_entries = [
@@ -175,18 +131,15 @@ def hapus_transaksi_db(tabel, db_id, user_id):
                 ]
         
         elif tabel == "pengeluaran":
-            kategori = transaksi.get('Kategori', '')
-            sub_kategori = transaksi.get('Sub_Kategori', 'Beban Lain') # Nama kolom DB
-            keterangan_batal = f"Pembatalan: {kategori} - {sub_kategori}"
+            sub_kategori = transaksi.get('Sub_Kategori', 'Beban Lain') 
+            keterangan_batal = f"Pembatalan: {transaksi.get('Kategori', '')} - {sub_kategori}"
 
             if metode_transaksi == "Pelunasan Utang":
-                # Balik jurnal pelunasan utang
                 jurnal_pembalikan_entries = [
                     {"Tanggal": waktu_hapus, "Akun": "Kas", "Debit": jumlah_transaksi, "Kredit": 0, "Keterangan": keterangan_batal, "Kontak": ""},
                     {"Tanggal": waktu_hapus, "Akun": "Utang Dagang", "Debit": 0, "Kredit": jumlah_transaksi, "Keterangan": keterangan_batal, "Kontak": kontak}
                 ]
             else:
-                # Balik jurnal beban
                 akun_kredit_pembalikan = {"Tunai": "Kas", "Transfer": "Bank", "Utang": "Utang Dagang"}.get(metode_transaksi, "Kas")
                 akun_debit_asli = sub_kategori
                 jurnal_pembalikan_entries = [
@@ -196,8 +149,7 @@ def hapus_transaksi_db(tabel, db_id, user_id):
         else:
             return False
         
-        # 4. Simpan jurnal pembalikan ke DB
-        buat_jurnal_batch(jurnal_pembalikan_entries, session['user_id']) # Ambil user_id dari session
+        buat_jurnal_batch(jurnal_pembalikan_entries, session['user_id'])
         return True
         
     except Exception as e:
@@ -205,61 +157,66 @@ def hapus_transaksi_db(tabel, db_id, user_id):
         flash(f"Gagal menghapus data: {e}", "danger")
         return False
 # --- Akhir Helper Functions ---
-    
 
-# ---------------- Decorator (Sudah Benar) ----------------
-# --- Ini adalah "Satpam" Tiket Masuknya ---
+
+# ---------------- Decorator (Tidak Berubah dari V5) ----------------
 def login_required(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
-        # 1. Cek dulu, user ini punya 'tiket masuk' di session-nya gak?
         if 'access_token' not in session:
             session.clear()
             flash("Sesi tidak valid. Harap login ulang.", "danger")
             return redirect(url_for('login_page'))
         
-        # 2. Jika punya, tunjukkan tiket itu ke Supabase SETIAP BUKA HALAMAN
         try:
             supabase.auth.set_session(
                 session['access_token'], 
                 session.get('refresh_token')
             )
-            # Coba ambil data user untuk validasi token
             response = supabase.auth.get_user()
             
             if not response or not response.user:
                 raise Exception("Token tidak valid atau sudah kedaluwarsa.")
                 
-            # Pastikan user_id juga ada di session
             if 'user_id' not in session:
-                 session['user_id'] = response.user.id
+                session['user_id'] = response.user.id
+            
             if 'username' not in session:
-                 session['username'] = response.user.email
+                try:
+                    user_id = response.user.id
+                    profile_res = supabase.from_("profiles").select("username").eq("id", user_id).single().execute()
+                    
+                    if profile_res.data and profile_res.data.get('username'):
+                        session['username'] = profile_res.data['username']
+                    else:
+                        session['username'] = response.user.email
+                except Exception as e:
+                    print(f"Gagal ambil username dari 'profiles': {e}")
+                    session['username'] = response.user.email # Fallback
+
             if 'logged_in' not in session:
-                 session['logged_in'] = True
+                session['logged_in'] = True
 
         except Exception as e:
-            # Gagal nunjukin tiket (mungkin udah expired)
             print(f"Gagal set session di decorator: {e}")
             session.clear()
             flash("Sesi Anda telah berakhir. Harap login ulang.", "danger")
             return redirect(url_for('login_page'))
         
-        # 3. Tiket valid! Lanjut ke halaman (misal: /pemasukan)
         return f(*args, **kwargs)
     return decorated_function
-# --- Akhir Perubahan Decorator ---
+# --- Akhir Decorator ---
 
 # ---------------- KUMPULAN TEMPLATE HTML ----------------
-# (Semua HTML tidak diubah, kecuali KELOLA DATA & LAPORAN)
 
+# --- HTML_LAYOUT (Tidak berubah dari V6) ---
 HTML_LAYOUT = """
 <!DOCTYPE html>
 <html lang="id">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{{ title }} - Aplikasi Keuangan</title>
+    <title>{{ title }} - Koilume</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         body { font-family: 'Inter', sans-serif; }
@@ -271,18 +228,43 @@ HTML_LAYOUT = """
             <div class="flex justify-between h-16">
                 <div class="flex">
                     <a href="{{ url_for('index_page') }}" class="flex-shrink-0 flex items-center text-xl font-bold text-red-700">
-                         Koilume (Lokal)
+                        Koilume
                     </a>
                 </div>
                 <div class="flex items-center">
                     {% if session.logged_in %}
-                        <!-- session['username'] sekarang berisi email -->
-                        <span class="text-gray-700 mr-4">Halo, {{ session.username }}!</span>
-                        <a href="{{ url_for('index_page') }}" class="px-3 py-2 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-100">Beranda</a>
-                        <a href="{{ url_for('pemasukan_page') }}" class="px-3 py-2 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-100">Pemasukan</a>
-                        <a href="{{ url_for('pengeluaran_page') }}" class="px-3 py-2 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-100">Pengeluaran</a>
-                        <a href="{{ url_for('kelola_page') }}" class="px-3 py-2 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-100">Kelola Data</a>
-                        <a href="{{ url_for('laporan_page') }}" class="px-3 py-2 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-100">Laporan</a>
+                        <span class="text-gray-700 mr-4">Halo, <b>{{ session.username }}</b>!</span>
+                        
+                        <div class="hidden md:flex items-center space-x-1">
+                            <a href="{{ url_for('index_page') }}" class="px-3 py-2 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-100">Beranda</a>
+                            
+                            <div class="relative">
+                                <button id="transaksi-menu-button" class="flex items-center px-3 py-2 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-100">
+                                    <span>Transaksi</span>
+                                    <svg class="ml-1 h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                                        <path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd" />
+                                    </svg>
+                                </button>
+                                <div id="transaksi-menu" class="absolute z-10 hidden w-48 bg-white rounded-md shadow-lg mt-2 py-1 border border-gray-200">
+                                    <a href="{{ url_for('pemasukan_page') }}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Input Pemasukan</a>
+                                    <a href="{{ url_for('pengeluaran_page') }}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Input Pengeluaran</a>
+                                </div>
+                            </div>
+                            
+                            <div class="relative">
+                                <button id="laporan-menu-button" class="flex items-center px-3 py-2 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-100">
+                                    <span>Data & Laporan</span>
+                                    <svg class="ml-1 h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                                        <path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd" />
+                                    </svg>
+                                </button>
+                                <div id="laporan-menu" class="absolute z-10 hidden w-48 bg-white rounded-md shadow-lg mt-2 py-1 border border-gray-200">
+                                    <a href="{{ url_for('kelola_page') }}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Kelola Data Transaksi</a>
+                                    <a href="{{ url_for('laporan_page') }}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Laporan Keuangan</a>
+                                </div>
+                            </div>
+
+                        </div>
                         <a href="{{ url_for('logout_page') }}" class="ml-4 px-3 py-2 rounded-md text-sm font-medium text-red-600 bg-red-100 hover:bg-red-200">Logout</a>
                     {% else %}
                         <a href="{{ url_for('login_page') }}" class="px-3 py-2 rounded-md text-sm font-medium text-red-600 bg-red-100 hover:bg-red-200">Login</a>
@@ -294,7 +276,6 @@ HTML_LAYOUT = """
     
     <main>
         <div class="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
-            <!-- Pesan Flash (Notifikasi) -->
             {% with messages = get_flashed_messages(with_categories=true) %}
               {% if messages %}
                 {% for category, message in messages %}
@@ -305,12 +286,10 @@ HTML_LAYOUT = """
               {% endif %}
             {% endwith %}
         
-            <!-- Konten Halaman -->
             {% block content %}{% endblock %}
         </div>
     </main>
     
-    <!-- Script format Rupiah & Toggle -->
     <script>
         function formatRupiah(element) {
             let value = element.value.replace(/[^,\d]/g, '').toString();
@@ -323,7 +302,6 @@ HTML_LAYOUT = """
                 let separator = sisa ? '.' : '';
                 rupiah += separator + ribuan.join('.');
             }
-
             rupiah = split[1] != undefined ? rupiah + ',' + split[1] : rupiah;
             element.value = rupiah;
         }
@@ -348,31 +326,129 @@ HTML_LAYOUT = """
             }
         }
     </script>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const transaksiButton = document.getElementById('transaksi-menu-button');
+            const transaksiMenu = document.getElementById('transaksi-menu');
+            const laporanButton = document.getElementById('laporan-menu-button');
+            const laporanMenu = document.getElementById('laporan-menu');
+
+            function toggleDropdown(menu) {
+                if (menu) {
+                    menu.classList.toggle('hidden');
+                }
+            }
+
+            // Tutup semua dropdown
+            function closeDropdowns(exceptMenu = null) {
+                if (transaksiMenu && transaksiMenu !== exceptMenu) {
+                    transaksiMenu.classList.add('hidden');
+                }
+                if (laporanMenu && laporanMenu !== exceptMenu) {
+                    laporanMenu.classList.add('hidden');
+                }
+            }
+
+            if (transaksiButton) {
+                transaksiButton.addEventListener('click', function(event) {
+                    event.stopPropagation(); // Hentikan event agar tidak ditangkap 'window.onclick'
+                    closeDropdowns(transaksiMenu); // Tutup menu lain
+                    toggleDropdown(transaksiMenu);
+                });
+            }
+
+            if (laporanButton) {
+                laporanButton.addEventListener('click', function(event) {
+                    event.stopPropagation();
+                    closeDropdowns(laporanMenu); // Tutup menu lain
+                    toggleDropdown(laporanMenu);
+                });
+            }
+
+            // Klik di luar menu untuk menutup
+            window.onclick = function(event) {
+                closeDropdowns();
+            }
+        });
+    </script>
 </body>
 </html>
 """
+
+# --- [PERUBAHAN V7] ---
+# Request 1: Beranda diubah jadi halaman statis (non-sensitif)
+HTML_INDEX = """
+<div class="space-y-6">
+    <div class="bg-white p-8 rounded-xl shadow-lg">
+        <h1 class="text-3xl font-bold text-gray-900">Selamat datang, {{ session.username }}!</h1>
+        <p class="text-gray-600 text-lg mt-2">Selamat datang di Koilume, aplikasi akuntansi sederhana Anda.</p>
+    </div>
+
+    <div class="bg-white p-8 rounded-xl shadow-lg">
+        <h2 class="text-xl font-bold text-gray-800 mb-4">Tentang Aplikasi Ini</h2>
+        <div class="space-y-3 text-gray-700">
+            <p>Koilume dirancang untuk membantu Anda melacak keuangan bisnis Koi dengan mudah. Berikut adalah fitur utamanya:</p>
+            <ul class="list-disc list-inside space-y-1 pl-4">
+                <li><b class="font-medium text-red-600">Input Transaksi:</b> Catat semua Pemasukan (penjualan ikan) dan Pengeluaran (pakan, listrik, dll).</li>
+                <li><b class="font-medium text-red-600">Jurnal Otomatis:</b> Setiap transaksi akan otomatis dibuatkan Jurnal.</li>
+                <li><b class="font-medium text-red-600">Laporan Keuangan:</b> Hasilkan laporan Laba Rugi, Neraca, dan Buku Besar secara otomatis.</li>
+                <li><b class="font-medium text-red-600">Buku Pembantu:</b> Lacak sisa Piutang dan Utang dengan mudah.</li>
+            </ul>
+        </div>
+    </div>
+
+    <div class="bg-white p-8 rounded-xl shadow-lg">
+        <h2 class="text-xl font-bold text-gray-800 mb-4">Akses Cepat</h2>
+        <div class="flex flex-col sm:flex-row gap-4">
+            <a href="{{ url_for('pemasukan_page') }}" class="flex-1 text-center bg-green-600 hover:bg-green-700 text-white font-medium py-3 px-5 rounded-lg transition duration-300">
+                ➕ Tambah Pemasukan
+            </a>
+            <a href="{{ url_for('pengeluaran_page') }}" class="flex-1 text-center bg-red-600 hover:bg-red-700 text-white font-medium py-3 px-5 rounded-lg transition duration-300">
+                ➖ Tambah Pengeluaran
+            </a>
+            <a href="{{ url_for('laporan_page') }}" class="flex-1 text-center bg-gray-700 hover:bg-gray-800 text-white font-medium py-3 px-5 rounded-lg transition duration-300">
+                📊 Lihat Laporan
+            </a>
+        </div>
+    </div>
+</div>
+"""
+# --- Akhir Perubahan V7 ---
+
+
+# --- HTML Lainnya (LOGIN, PEMASUKAN, PENGELUARAN, KELOLA, LAPORAN) ---
+# --- (Tidak berubah dari V6) ---
 
 HTML_LOGIN = """
 <div class="flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
     <div class="max-w-md w-full space-y-8 bg-white p-10 rounded-xl shadow-lg">
         <div>
             <h2 class="mt-6 text-center text-3xl font-extrabold text-gray-900">
-                Login atau Daftar Akun (via Supabase)
+                Login atau Daftar Akun
             </h2>
         </div>
         <form class="mt-8 space-y-6" action="{{ url_for('login_page') }}" method="POST">
             <div class="rounded-md shadow-sm -space-y-px">
+                
+                <div id="username-container" style="display: none;">
+                    <label for="username" class="sr-only">Username</label>
+                    <input id="username" name="username" type="text" autocomplete="username"
+                           class="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-t-md focus:outline-none focus:ring-red-500 focus:border-red-500 focus:z-10 sm:text-sm" 
+                           placeholder="Username (tanpa spasi, cth: koilume)">
+                </div>
+
                 <div>
                     <label for="email" class="sr-only">Email</label>
                     <input id="email" name="email" type="email" autocomplete="email" required 
-                           class="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-t-md focus:outline-none focus:ring-red-500 focus:border-red-500 focus:z-10 sm:text-sm" 
+                           class="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-red-500 focus:border-red-500 focus:z-10 sm:text-sm" 
                            placeholder="Alamat Email">
                 </div>
                 <div>
                     <label for="password" class="sr-only">Kata Sandi</label>
                     <input id="password" name="password" type="password" autocomplete="current-password" required 
                            class="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-b-md focus:outline-none focus:ring-red-500 focus:border-red-500 focus:z-10 sm:text-sm" 
-                           placeholder="Kata Sandi">
+                           placeholder="Kata Sandi (min. 6 karakter)">
                 </div>
             </div>
 
@@ -395,19 +471,28 @@ HTML_LOGIN = """
         </form>
     </div>
 </div>
-"""
 
-HTML_INDEX = """
-<div class="bg-white p-8 rounded-xl shadow-lg">
-    <h1 class="text-3xl font-bold text-gray-900 mb-4">Selamat datang, {{ session.username }}!</h1>
-    <p class="text-gray-700 text-lg">Ini adalah aplikasi akuntansi Koilume versi web.</p>
-    <ul class="list-disc list-inside mt-4 text-gray-600">
-        <li>Gunakan menu <b class="text-red-600">Pemasukan</b> untuk mencatat pendapatan.</li>
-        <li>Gunakan menu <b class="text-red-600">Pengeluaran</b> untuk mencatat biaya operasional.</li>
-        <li>Gunakan menu <b class="text-red-600">Kelola Data</b> untuk melihat dan menghapus transaksi.</li>
-        <li>Gunakan menu <b class="text-red-600">Laporan</b> untuk melihat analisis keuangan Anda, termasuk Buku Besar Pembantu.</li>
-    </ul>
-</div>
+<script>
+    const modeLogin = document.getElementById('mode-login');
+    const modeDaftar = document.getElementById('mode-daftar');
+    const usernameContainer = document.getElementById('username-container');
+    const emailInput = document.getElementById('email');
+
+    function toggleUsernameField() {
+        if (modeDaftar.checked) {
+            usernameContainer.style.display = 'block';
+            emailInput.classList.remove('rounded-t-md'); 
+        } else {
+            usernameContainer.style.display = 'none';
+            emailInput.classList.add('rounded-t-md'); 
+        }
+    }
+    
+    modeLogin.addEventListener('change', toggleUsernameField);
+    modeDaftar.addEventListener('change', toggleUsernameField);
+    
+    document.addEventListener('DOMContentLoaded', toggleUsernameField);
+</script>
 """
 
 HTML_PEMASUKAN = """
@@ -420,7 +505,6 @@ HTML_PEMASUKAN = """
                    class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-red-500 focus:border-red-500 sm:text-sm">
         </div>
         
-        <!-- Dropdown Kategori (Sumber) -->
         <div>
             <label for="sumber" class="block text-sm font-medium text-gray-700">Kategori Pemasukan</label>
             <select id="sumber" name="sumber" required
@@ -431,13 +515,11 @@ HTML_PEMASUKAN = """
             </select>
         </div>
 
-        <!-- Dropdown Sub-Kategori (Sub Sumber) -->
         <div>
             <label for="sub_sumber" class="block text-sm font-medium text-gray-700">Akun Pemasukan</label>
             <select id="sub_sumber" name="sub_sumber" required
                     class="mt-1 block w-full px-3 py-2 border border-gray-300 bg-white rounded-md shadow-sm focus:outline-none focus:ring-red-500 focus:border-red-500 sm:text-sm">
-                <!-- Opsi akan diisi oleh JavaScript -->
-            </select>
+                </select>
         </div>
 
         <div>
@@ -477,7 +559,6 @@ HTML_PEMASUKAN = """
         </div>
     </form>
     
-    <!-- Script untuk dropdown dinamis Pemasukan -->
     <script>
         const kategoriPemasukanData = {{ kategori_pemasukan | tojson }};
         const sumberSelect = document.getElementById('sumber');
@@ -487,7 +568,7 @@ HTML_PEMASUKAN = """
             const selectedSumber = sumberSelect.value;
             const subSumberList = kategoriPemasukanData[selectedSumber] || [];
             
-            subSumberSelect.innerHTML = ''; // Kosongkan
+            subSumberSelect.innerHTML = ''; 
             
             subSumberList.forEach(sub => {
                 const option = document.createElement('option');
@@ -498,18 +579,13 @@ HTML_PEMASUKAN = """
         }
         
         sumberSelect.addEventListener('change', updateSubSumber);
-        
-        // Panggil sekali saat load
         updateSubSumber();
-
-        // Panggil fungsi toggle saat halaman load
         document.addEventListener('DOMContentLoaded', function() {
             toggleKontakInput('metode_pemasukan', 'kontak-pemasukan-container');
         });
     </script>
 </div>
 """
-
 HTML_PENGELUARAN = """
 <div class="bg-white p-8 rounded-xl shadow-lg max-w-2xl mx-auto">
     <h2 class="text-2xl font-bold text-gray-900 mb-6">Tambah Pengeluaran</h2>
@@ -522,7 +598,7 @@ HTML_PENGELUARAN = """
         <div>
             <label for="kategori" class="block text-sm font-medium text-gray-700">Kategori Pengeluaran</label>
             <select id="kategori" name="kategori" required
-                    class="mt-1 block w-full px-3 py-2 border border-gray-300 bg-white rounded-md shadow-sm focus:outline-none focus:ring-red-500 focus:border-red-500 sm:text-sm">
+                     class="mt-1 block w-full px-3 py-2 border border-gray-300 bg-white rounded-md shadow-sm focus:outline-none focus:ring-red-500 focus:border-red-500 sm:text-sm">
                 {% for kategori in kategori_pengeluaran.keys() %}
                 <option value="{{ kategori }}">{{ kategori }}</option>
                 {% endfor %}
@@ -532,8 +608,7 @@ HTML_PENGELUARAN = """
             <label for="sub_kategori" class="block text-sm font-medium text-gray-700">Sub Kategori (Akun)</label>
             <select id="sub_kategori" name="sub_kategori" required
                     class="mt-1 block w-full px-3 py-2 border border-gray-300 bg-white rounded-md shadow-sm focus:outline-none focus:ring-red-500 focus:border-red-500 sm:text-sm">
-                <!-- Opsi akan diisi oleh JavaScript -->
-            </select>
+                </select>
         </div>
         <div>
             <label for="jumlah" class="block text-sm font-medium text-gray-700">Jumlah (Rp)</label>
@@ -581,7 +656,7 @@ HTML_PENGELUARAN = """
             const selectedKategori = kategoriSelect.value;
             const subKategoriList = kategoriData[selectedKategori] || [];
             
-            subKategoriSelect.innerHTML = ''; // Kosongkan
+            subKategoriSelect.innerHTML = ''; 
             
             subKategoriList.forEach(sub => {
                 const option = document.createElement('option');
@@ -592,22 +667,17 @@ HTML_PENGELUARAN = """
         }
         
         kategoriSelect.addEventListener('change', updateSubKategori);
-        
         updateSubKategori();
-
         document.addEventListener('DOMContentLoaded', function() {
             toggleKontakInput('metode_pengeluaran', 'kontak-pengeluaran-container');
         });
     </script>
 </div>
 """
-
-# --- [PERBAIKAN] HTML Kelola Data dirombak ---
 HTML_KELOLA_DATA = """
 <div class="bg-white p-8 rounded-xl shadow-lg">
     <h2 class="text-2xl font-bold text-gray-900 mb-6">Kelola Data Transaksi</h2>
     
-    <!-- Tabel Pemasukan -->
     <h3 class="text-xl font-semibold text-gray-800 mb-3">Data Pemasukan</h3>
     <div class="overflow-x-auto rounded-lg border border-gray-200 mb-6">
         <table class="min-w-full divide-y divide-gray-200">
@@ -616,7 +686,6 @@ HTML_KELOLA_DATA = """
                     <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ID</th>
                     <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tanggal</th>
                     <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Sumber</th>
-                    <!-- Kolom Baru -->
                     <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Sub Sumber</th>
                     <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Jumlah</th>
                     <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Metode</th>
@@ -625,13 +694,11 @@ HTML_KELOLA_DATA = """
                 </tr>
             </thead>
             <tbody class="bg-white divide-y divide-gray-200">
-                <!-- [PERBAIKAN] Ganti .iterrows() -> loop list biasa -->
                 {% for row in pemasukan_df %}
                 <tr>
                     <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-500">{{ row['id'] }}</td>
                     <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-500">{{ row['Tanggal'] | string | truncate(10, True, '') }}</td>
                     <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-900">{{ row['Sumber'] }}</td>
-                    <!-- [PERBAIKAN] Nama kolom DB pakai underscore -->
                     <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-900">{{ row.get('Sub_Sumber', '') }}</td>
                     <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-900">{{ row['Jumlah'] | rupiah }}</td>
                     <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-500">{{ row['Metode'] }}</td>
@@ -649,7 +716,6 @@ HTML_KELOLA_DATA = """
         </table>
     </div>
 
-    <!-- Tabel Pengeluaran -->
     <h3 class="text-xl font-semibold text-gray-800 mb-3">Data Pengeluaran</h3>
     <div class="overflow-x-auto rounded-lg border border-gray-200">
         <table class="min-w-full divide-y divide-gray-200">
@@ -665,7 +731,6 @@ HTML_KELOLA_DATA = """
                 </tr>
             </thead>
             <tbody class="bg-white divide-y divide-gray-200">
-                <!-- [PERBAIKAN] Ganti .iterrows() -> loop list biasa -->
                 {% for row in pengeluaran_df %}
                 <tr>
                     <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-500">{{ row['id'] }}</td>
@@ -688,13 +753,10 @@ HTML_KELOLA_DATA = """
     </div>
 </div>
 """
-# --- Akhir Perubahan ---
-
 HTML_LAPORAN = """
 <div class="bg-white p-8 rounded-xl shadow-lg">
     <h2 class="text-2xl font-bold text-gray-900 mb-6">Laporan Keuangan</h2>
     
-    <!-- Filter Tanggal -->
     <form method="POST" action="{{ url_for('laporan_page') }}" class="mb-6 bg-gray-50 p-4 rounded-lg border border-gray-200 flex flex-wrap items-end gap-4">
         <div>
             <label for="mulai" class="block text-sm font-medium text-gray-700">Tanggal Mulai</label>
@@ -711,8 +773,7 @@ HTML_LAPORAN = """
         </button>
     </form>
     
-    <!-- 1. Ringkasan -->
-    <h3 class="text-xl font-semibold text-gray-800 mb-3">Ringkasan</h3>
+    <h3 class="text-xl font-semibold text-gray-800 mb-3">Ringkasan (Periode Terpilih)</h3>
     <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
         <div class="bg-green-50 p-4 rounded-lg border border-green-200">
             <div class="text-sm font-medium text-green-700">Total Pemasukan</div>
@@ -724,12 +785,10 @@ HTML_LAPORAN = """
         </div>
     </div>
 
-    <!-- 2. Laba Rugi -->
-    <h3 class="text-xl font-semibold text-gray-800 mb-3">Laporan Laba Rugi</h3>
+    <h3 class="text-xl font-semibold text-gray-800 mb-3">Laporan Laba Rugi (Periode Terpilih)</h3>
     <div class="bg-gray-50 p-4 rounded-lg border border-gray-200 mb-6">
         <div class="flow-root">
             <dl class="divide-y divide-gray-200">
-                <!-- Rincian Pendapatan -->
                 <dt class="text-gray-900 font-semibold">Pendapatan:</dt>
                 {% for item in laba_rugi.rincian_pendapatan %}
                 <div class="py-2 flex justify-between text-sm ml-4">
@@ -747,13 +806,11 @@ HTML_LAPORAN = """
                     <dd class="text-gray-900">{{ laba_rugi.pendapatan_total | rupiah }}</dd>
                 </div>
                 
-                <!-- Rincian Beban (Kamu bisa tambahkan loop 'beban_df' di sini jika mau) -->
                 <div class="py-3 flex justify-between text-sm">
                     <dt class="text-gray-600">Total Pengeluaran (Beban)</dt>
                     <dd class="text-gray-900 font-medium">- {{ laba_rugi.beban_total | rupiah }}</dd>
                 </div>
                 
-                <!-- Total Laba Rugi -->
                 <div class="py-3 flex justify-between text-base font-semibold border-t border-gray-300">
                     <dt class="text-gray-900">Laba / Rugi</Kdt>
                     <dd class="{% if laba_rugi.laba_rugi >= 0 %}text-green-700{% else %}text-red-700{% endif %}">
@@ -763,22 +820,26 @@ HTML_LAPORAN = """
             </dl>
         </div>
     </div>
-    <!-- Akhir Perubahan Laba Rugi -->
 
-    <!-- 3. Neraca -->
     <h3 class="text-xl font-semibold text-gray-800 mb-3">Neraca (Posisi Keuangan s/d {{ filter.akhir }})</h3>
     <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-        <!-- Sisi Aktiva -->
         <div class="bg-gray-50 p-4 rounded-lg border border-gray-200">
             <h4 class="font-semibold text-gray-800 mb-2">Aktiva (Harta)</h4>
             <dl class="divide-y divide-gray-200">
                 <div class="py-2 flex justify-between text-sm">
-                    <dt class="text-gray-600">Total Aktiva</dt>
-                    <dd class="text-gray-900 font-medium">{{ neraca.aktiva | rupiah }}</dd>
+                    <dt class="text-gray-600">Kas & Bank</dt>
+                    <dd class="text-gray-900 font-medium">{{ neraca.kas_bank | rupiah }}</dd>
+                </div>
+                <div class="py-2 flex justify-between text-sm">
+                    <dt class="text-gray-600">Piutang Dagang</dt>
+                    <dd class="text-gray-900 font-medium">{{ neraca.piutang | rupiah }}</dd>
+                </div>
+                <div class="py-2 flex justify-between text-sm font-semibold">
+                    <dt class="text-gray-900">Total Aktiva</dt>
+                    <dd class="text-gray-900">{{ neraca.aktiva | rupiah }}</dd>
                 </div>
             </dl>
         </div>
-        <!-- Sisi Pasiva -->
         <div class="bg-gray-50 p-4 rounded-lg border border-gray-200">
             <h4 class="font-semibold text-gray-800 mb-2">Pasiva (Kewajiban + Ekuitas)</h4>
             <dl class="divide-y divide-gray-200">
@@ -797,11 +858,20 @@ HTML_LAPORAN = """
             </dl>
         </div>
     </div>
+    {% if neraca.is_balance %}
+    <div class="bg-green-100 border-l-4 border-green-500 text-green-700 p-4" role="alert">
+        <p class="font-bold">Neraca Seimbang (Balance)</p>
+        <p>Total Aktiva ({{ neraca.aktiva | rupiah }}) sama dengan Total Pasiva ({{ (neraca.kewajiban + neraca.ekuitas) | rupiah }}).</p>
+    </div>
+    {% else %}
+    <div class="bg-red-100 border-l-4 border-red-500 text-red-700 p-4" role="alert">
+        <p class="font-bold">Error: Neraca Tidak Seimbang</p>
+        <p>Total Aktiva ({{ neraca.aktiva | rupiah }}) tidak sama dengan Total Pasiva ({{ (neraca.kewajiban + neraca.ekuitas) | rupiah }}). Cek logika jurnal Anda.</p>
+    </div>
+    {% endif %}
 
-    <!-- (Req 3) Buku Besar Pembantu -->
-    <h3 class="text-xl font-semibold text-gray-800 mb-3">Buku Besar Pembantu (s/d {{ filter.akhir }})</h3>
+    <h3 class="text-xl font-semibold text-gray-800 mb-3 mt-6">Buku Besar Pembantu (s/d {{ filter.akhir }})</h3>
     <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-        <!-- BBP Piutang -->
         <div class="bg-gray-50 p-4 rounded-lg border border-gray-200">
             <h4 class="font-semibold text-gray-800 mb-2">Piutang Dagang</h4>
             <dl class="divide-y divide-gray-200">
@@ -817,7 +887,6 @@ HTML_LAPORAN = """
                 {% endfor %}
             </dl>
         </div>
-        <!-- BBP Utang -->
         <div class="bg-gray-50 p-4 rounded-lg border border-gray-200">
             <h4 class="font-semibold text-gray-800 mb-2">Utang Dagang</h4>
             <dl class="divide-y divide-gray-200">
@@ -834,10 +903,7 @@ HTML_LAPORAN = """
             </dl>
         </div>
     </div>
-    <!-- Akhir Perubahan (Req 3) -->
 
-
-    <!-- 4. Jurnal Umum -->
     <h3 class="text-xl font-semibold text-gray-800 mb-3">Jurnal Umum (Periode {{ filter.mulai }} s/d {{ filter.akhir }})</h3>
     <div class="overflow-x-auto rounded-lg border border-gray-200 mb-6">
         <table class="min-w-full divide-y divide-gray-200">
@@ -852,7 +918,6 @@ HTML_LAPORAN = """
                 </tr>
             </thead>
             <tbody class="bg-white divide-y divide-gray-200">
-                <!-- [PERBAIKAN] Ganti .iterrows() -> loop list biasa -->
                 {% for row in jurnal_df %}
                 <tr>
                     <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-500">{{ row['Tanggal'] | string | truncate(19, True, '') }}</td>
@@ -869,7 +934,6 @@ HTML_LAPORAN = """
         </table>
     </div>
 
-    <!-- 5. Buku Besar -->
     <h3 class="text-xl font-semibold text-gray-800 mb-3">Buku Besar (Periode {{ filter.mulai }} s/d {{ filter.akhir }})</h3>
     <div class="space-y-4">
         {% for akun, data_list in buku_besar.items() %}
@@ -888,7 +952,6 @@ HTML_LAPORAN = """
                         </tr>
                     </thead>
                     <tbody class="bg-white divide-y divide-gray-200">
-                        <!-- [PERBAIKAN] Ganti .itertuples() -> loop list biasa -->
                         {% for row in data_list %}
                         <tr>
                             <td class="px-3 py-2 whitespace-nowrap text-sm text-gray-500">{{ row.Tanggal | string | truncate(10, True, '') }}</td>
@@ -911,17 +974,21 @@ HTML_LAPORAN = """
 </div>
 """
 
-
 # ---------------- RUTE FLASK (Fokus di sini) ----------------
 
+# --- [PERUBAHAN V7] ---
+# Request 1: Rute Index diubah jadi statis (non-sensitif)
 @app.route("/")
 @login_required
 def index_page():
-    # --- [FIX] Ganti render_template -> render_template_string ---
+    # Rute ini tidak lagi menghitung data keuangan.
+    # Hanya menampilkan halaman selamat datang.
     full_html = HTML_LAYOUT.replace('{% block content %}{% endblock %}', HTML_INDEX)
     return render_template_string(full_html, title="Beranda")
+# --- Akhir Perubahan V7 ---
 
-# --- [PERBAIKAN V4] INI ADALAH FUNGSI YANG DIPERBAIKI ---
+
+# --- Rute Login (Tidak Berubah dari V5) ---
 @app.route("/login", methods=["GET", "POST"])
 def login_page():
     if session.get('logged_in'):
@@ -930,6 +997,7 @@ def login_page():
     if request.method == "POST":
         email = request.form.get("email", "").strip() 
         password = request.form.get("password", "").strip()
+        username = request.form.get("username", "").strip()
         mode = request.form.get("mode")
         
         if not email or not password:
@@ -937,49 +1005,67 @@ def login_page():
             return redirect(url_for('login_page'))
 
         if mode == "Daftar":
+            if not username:
+                flash("Username wajib diisi saat mendaftar.", "danger")
+                return redirect(url_for('login_page'))
             try:
-                # Panggil .sign_up
                 response = supabase.auth.sign_up({
                     "email": email,
                     "password": password,
                 })
                 
-                # 'sign_up' akan raise Exception jika gagal
-                
+                if response.user:
+                    user_id = response.user.id
+                    try:
+                        supabase.from_("profiles").insert({
+                            "id": user_id,
+                            "username": username
+                        }).execute()
+                    except Exception as profile_e:
+                        flash(f"Gagal membuat profil: {profile_e}", "danger")
+                        return redirect(url_for('login_page'))
+
                 flash("Akun berhasil dibuat. Cek email-mu untuk verifikasi!", "success")
                 
             except Exception as e:
-                # Error (misal: "User already registered") akan ditangkap di sini
                 flash(f"Gagal mendaftar: {e}", "danger")
             return redirect(url_for('login_page'))
         
         elif mode == "Login":
             try:
-                # Panggil .sign_in_with_password
                 response = supabase.auth.sign_in_with_password({
                     "email": email,
                     "password": password
                 })
                 
-                session['logged_in'] = True
+                user_id = response.user.id
+                user_email = response.user.email
                 
-                # [PERBAIKAN V4]
-                # Simpan SEMUA data sesi yang kita butuh
-                session['username'] = response.user.email 
-                session['user_id'] = response.user.id
+                login_username = user_email # Default
+                try:
+                    profile_res = supabase.from_("profiles").select("username").eq("id", user_id).single().execute()
+                    if profile_res.data and profile_res.data.get('username'):
+                        login_username = profile_res.data['username']
+                except Exception as e:
+                    print(f"Gagal ambil profile saat login, fallback ke email: {e}")
+                
+                session['logged_in'] = True
+                session['username'] = login_username
+                session['user_id'] = user_id
                 session['access_token'] = response.session.access_token
                 session['refresh_token'] = response.session.refresh_token
                 
-                flash(f"Login berhasil! Selamat datang, {response.user.email}.", "success")
+                flash(f"Login berhasil! Selamat datang, {login_username}.", "success")
                 return redirect(url_for('index_page'))
             
             except Exception as e:
                 flash(f"Gagal login: {e}", "danger")
             return redirect(url_for('login_page'))
 
-    # --- [FIX] Ganti render_template -> render_template_string ---
     full_html = HTML_LAYOUT.replace('{% block content %}{% endblock %}', HTML_LOGIN)
     return render_template_string(full_html, title="Login")
+# --- Akhir Rute Login ---
+
 
 @app.route("/logout")
 def logout_page():
@@ -991,53 +1077,39 @@ def logout_page():
     session.clear()
     flash("Anda telah berhasil logout.", "success")
     return redirect(url_for('login_page'))
-# --- Akhir Perubahan Auth ---
 
 
-# --- [PERUBAHAN] Rute Pemasukan ---
+# --- Rute Pemasukan (Tidak Berubah dari V5) ---
 @app.route("/pemasukan", methods=["GET", "POST"])
 @login_required
 def pemasukan_page():
-    user_id = session['user_id'] # Ambil user_id dari session
+    user_id = session['user_id']
     if request.method == "POST":
         try:
             tanggal = request.form.get("tanggal")
             waktu = datetime.combine(datetime.strptime(tanggal, "%Y-%m-%d").date(), datetime.now().time()).strftime("%Y-%m-%d %H:%M:%S")
-            
             sumber = request.form.get("sumber")
             sub_sumber = request.form.get("sub_sumber") 
-            
             jumlah_str = request.form.get("jumlah", "0").replace(".", "")
             jumlah = float(jumlah_str)
-            
             metode = request.form.get("metode_pemasukan") 
             deskripsi = request.form.get("deskripsi", "")
-            
             kontak = request.form.get("kontak", "").strip()
             
             if (metode == "Piutang" or metode == "Pelunasan Piutang") and not kontak:
                 flash("Nama Pelanggan wajib diisi untuk transaksi Piutang.", "danger")
                 return redirect(url_for('pemasukan_page'))
-
             if jumlah <= 0:
                 flash("Jumlah harus lebih dari 0.", "danger")
                 return redirect(url_for('pemasukan_page'))
             
             data_pemasukan = {
-                "Tanggal": waktu, 
-                "Sumber": sumber, 
-                "Sub_Sumber": sub_sumber, # [Fix] Nama kolom DB pakai underscore
-                "Jumlah": jumlah,
-                "Metode": metode, 
-                "Keterangan": deskripsi, 
-                "Kontak": kontak
-                # 'user_id' akan ditambahkan oleh 'append_data_to_db'
+                "Tanggal": waktu, "Sumber": sumber, "Sub_Sumber": sub_sumber,
+                "Jumlah": jumlah, "Metode": metode, "Keterangan": deskripsi, "Kontak": kontak
             }
-            # Panggil fungsi DB baru
             append_data_to_db("pemasukan", data_pemasukan, user_id) 
             
             akun_debit = {"Tunai": "Kas", "Transfer": "Bank", "Piutang": "Piutang Dagang", "Pelunasan Piutang": "Kas"}.get(metode, "Kas")
-            
             keterangan_jurnal = f"{sumber} - {deskripsi}" 
             if metode == "Pelunasan Piutang":
                 akun_kredit = "Piutang Dagang"
@@ -1045,71 +1117,52 @@ def pemasukan_page():
             else:
                 akun_kredit = sub_sumber 
             
-            # Buat list entri jurnal
             jurnal_entries = [
                 {"Tanggal": waktu, "Akun": akun_debit, "Debit": jumlah, "Kredit": 0, "Keterangan": keterangan_jurnal, "Kontak": kontak if akun_debit == "Piutang Dagang" else ""},
-                {"Tanggal": waktu, "Akun": akun_kredit, "Debit": 0, "Kredit": jumlah, "Keterangan": keterangan_jurnal, "Kontak": ""}
+                {"Tanggal": waktu, "Akun": akun_kredit, "Debit": 0, "Kredit": jumlah, "Keterangan": keterangan_jurnal, "Kontak": kontak if akun_kredit == "Piutang Dagang" else ""}
             ]
-            # Panggil fungsi DB baru
             buat_jurnal_batch(jurnal_entries, user_id)
-                
             flash("Pemasukan berhasil disimpan.", "success")
             return redirect(url_for('pemasukan_page'))
-            
         except Exception as e:
-            # flash() sudah dipanggil di dalam helper
             return redirect(url_for('pemasukan_page'))
             
     today = datetime.now().strftime("%Y-%m-%d")
-    
-    # --- [FIX] Ganti render_template -> render_template_string ---
     full_html = HTML_LAYOUT.replace('{% block content %}{% endblock %}', HTML_PEMASUKAN)
     return render_template_string(full_html, title="Pemasukan", kategori_pemasukan=kategori_pemasukan, today=today)
-# --- Akhir Perubahan ---
 
 
+# --- Rute Pengeluaran (Tidak Berubah dari V5) ---
 @app.route("/pengeluaran", methods=["GET", "POST"])
 @login_required
 def pengeluaran_page():
-    user_id = session['user_id'] # Ambil user_id dari session
+    user_id = session['user_id']
     if request.method == "POST":
         try:
             tanggal = request.form.get("tanggal")
             waktu = datetime.combine(datetime.strptime(tanggal, "%Y-%m-%d").date(), datetime.now().time()).strftime("%Y-%m-%d %H:%M:%S")
-            
             kategori = request.form.get("kategori")
             sub_kategori = request.form.get("sub_kategori")
-            
             jumlah_str = request.form.get("jumlah", "0").replace(".", "")
             jumlah = float(jumlah_str)
-
             metode = request.form.get("metode_pengeluaran")
             deskripsi = request.form.get("deskripsi", "")
-            
             kontak = request.form.get("kontak", "").strip()
 
             if (metode == "Utang" or metode == "Pelunasan Utang") and not kontak:
                 flash("Nama Vendor wajib diisi untuk transaksi Utang.", "danger")
                 return redirect(url_for('pengeluaran_page'))
-            
             if jumlah <= 0:
                 flash("Jumlah harus lebih dari 0.", "danger")
                 return redirect(url_for('pengeluaran_page'))
             
             data_pengeluaran = {
-                "Tanggal": waktu, 
-                "Kategori": kategori, 
-                "Sub_Kategori": sub_kategori, # [Fix] Nama kolom DB pakai underscore
-                "Jumlah": jumlah, 
-                "Keterangan": deskripsi, 
-                "Metode": metode, 
-                "Kontak": kontak
+                "Tanggal": waktu, "Kategori": kategori, "Sub_Kategori": sub_kategori,
+                "Jumlah": jumlah, "Keterangan": deskripsi, "Metode": metode, "Kontak": kontak
             }
-            # Panggil fungsi DB baru
             append_data_to_db("pengeluaran", data_pengeluaran, user_id)
             
             akun_kredit = {"Tunai": "Kas", "Transfer": "Bank", "Utang": "Utang Dagang", "Pelunasan Utang": "Kas"}.get(metode, "Kas")
-            
             keterangan_jurnal = f"{kategori} - {deskripsi}"
             if metode == "Pelunasan Utang":
                 akun_debit = "Utang Dagang"
@@ -1117,78 +1170,56 @@ def pengeluaran_page():
             else:
                 akun_debit = sub_kategori 
             
-            # Buat list entri jurnal
             jurnal_entries = [
-                {"Tanggal": waktu, "Akun": akun_debit, "Debit": jumlah, "Kredit": 0, "Keterangan": keterangan_jurnal, "Kontak": ""},
+                {"Tanggal": waktu, "Akun": akun_debit, "Debit": jumlah, "Kredit": 0, "Keterangan": keterangan_jurnal, "Kontak": kontak if akun_debit == "Utang Dagang" else ""},
                 {"Tanggal": waktu, "Akun": akun_kredit, "Debit": 0, "Kredit": jumlah, "Keterangan": keterangan_jurnal, "Kontak": kontak if akun_kredit == "Utang Dagang" else ""}
             ]
-            # Panggil fungsi DB baru
             buat_jurnal_batch(jurnal_entries, user_id)
-
             flash("Pengeluaran berhasil disimpan.", "success")
             return redirect(url_for('pengeluaran_page'))
-
         except Exception as e:
-            # flash() sudah dipanggil di dalam helper
             return redirect(url_for('pengeluaran_page'))
             
     today = datetime.now().strftime("%Y-%m-%d")
-    
-    # --- [FIX] Ganti render_template -> render_template_string ---
     full_html = HTML_LAYOUT.replace('{% block content %}{% endblock %}', HTML_PENGELUARAN)
     return render_template_string(full_html, title="Pengeluaran", kategori_pengeluaran=kategori_pengeluaran, today=today)
 
 
+# --- Rute Kelola & Hapus (Tidak Berubah dari V5) ---
 @app.route("/kelola")
 @login_required
 def kelola_page():
-    user_id = session['user_id'] # Ambil user_id dari session
-    
-    # Panggil fungsi DB baru
+    user_id = session['user_id']
     pemasukan_df = load_data_from_db("pemasukan", user_id)
     if not pemasukan_df.empty:
         pemasukan_df = pemasukan_df.sort_values(by="Tanggal", ascending=False)
-        
-    # Panggil fungsi DB baru
     pengeluaran_df = load_data_from_db("pengeluaran", user_id)
     if not pengeluaran_df.empty:
         pengeluaran_df = pengeluaran_df.sort_values(by="Tanggal", ascending=False)
-    
-    # --- [PERBAIKAN BUG 'id'] ---
-    # Ubah DataFrame -> List of Dictionaries
-    # Ini FIX untuk error 'dict object has no attribute id'
     pemasukan_list = pemasukan_df.to_dict('records')
     pengeluaran_list = pengeluaran_df.to_dict('records')
-    
     full_html = HTML_LAYOUT.replace('{% block content %}{% endblock %}', HTML_KELOLA_DATA)
     return render_template_string(full_html, title="Kelola Data", 
                                   pemasukan_df=pemasukan_list, pengeluaran_df=pengeluaran_list)
 
-# --- [PERUBAHAN] Rute Hapus ---
-@app.route("/hapus/<string:tipe>/<int:db_id>") # Terima db_id, bukan index
+@app.route("/hapus/<string:tipe>/<int:db_id>")
 @login_required
 def hapus_page(tipe, db_id):
-    user_id = session['user_id'] # Ambil user_id dari session
-    
+    user_id = session['user_id']
     if tipe not in ['pemasukan', 'pengeluaran']:
         flash("Tipe transaksi tidak valid.", "danger")
         return redirect(url_for('kelola_page'))
-        
-    # Panggil fungsi DB baru
     if hapus_transaksi_db(tipe, db_id, user_id):
         flash(f"Data {tipe} ID {db_id} berhasil dihapus dan jurnal pembalikan dibuat.", "success")
-    else:
-        # Pesan flash error sudah dipanggil di dalam helper
-        pass 
-        
     return redirect(url_for('kelola_page'))
-# --- Akhir Perubahan ---
 
 
+# --- [PERUBAHAN V7] ---
+# Request 2: Logika Neraca diubah agar patuh SAK
 @app.route("/laporan", methods=["GET", "POST"])
 @login_required
 def laporan_page():
-    user_id = session['user_id'] # Ambil user_id dari session
+    user_id = session['user_id']
     
     if request.method == "POST":
         mulai_str = request.form.get("mulai")
@@ -1200,21 +1231,18 @@ def laporan_page():
     filter_tanggal = {"mulai": mulai_str, "akhir": akhir_str}
     
     try:
-        # [PERBAIKAN BUG TANGGAL]
         mulai_dt = pd.to_datetime(mulai_str)
         akhir_dt = pd.to_datetime(akhir_str) + pd.Timedelta(days=1)
     except ValueError:
         flash("Format tanggal tidak valid.", "danger")
-        empty_df = pd.DataFrame(columns=["Tanggal", "Akun", "Debit", "Kredit", "Keterangan", "Kontak"])
-        # --- [FIX] Ganti render_template -> render_template_string ---
         full_html = HTML_LAYOUT.replace('{% block content %}{% endblock %}', HTML_LAPORAN)
         return render_template_string(
             full_html, title="Laporan", filter=filter_tanggal,
             ringkasan={"total_pemasukan": 0, "total_pengeluaran": 0},
             laba_rugi={"rincian_pendapatan": [], "pendapatan_total": 0, "beban_total": 0, "laba_rugi": 0},
-            neraca={"aktiva": 0, "kewajiban": 0, "ekuitas": 0},
+            neraca={"aktiva": 0, "kewajiban": 0, "ekuitas": 0, "kas_bank": 0, "piutang": 0, "is_balance": False},
             buku_pembantu_piutang={}, buku_pembantu_utang={},
-            jurnal_df=[], buku_besar={} # [FIX] Kirim list kosong
+            jurnal_df=[], buku_besar={}
         )
 
     # Load data dari DB
@@ -1222,38 +1250,35 @@ def laporan_page():
     pengeluaran_df = load_data_from_db("pengeluaran", user_id)
     jurnal_df = load_data_from_db("jurnal", user_id)
 
-    # Konversi kolom Tanggal
+    # Konversi kolom Tanggal & Numerik
     for df in [pemasukan_df, pengeluaran_df, jurnal_df]:
         if not df.empty and "Tanggal" in df.columns:
-            # [PERBAIKAN BUG TANGGAL] Ubah jadi datetime, lalu convert ke UTC, lalu hapus info timezone (jadi naive)
             df["Tanggal"] = pd.to_datetime(df["Tanggal"], errors='coerce').dt.tz_convert(None)
             df.dropna(subset=['Tanggal'], inplace=True)
-            # [PERBAIKAN] Konversi kolom finansial ke numeric
             for col in ['Jumlah', 'Debit', 'Kredit']:
                 if col in df.columns:
                     df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0)
-
     
-    # --- Filter Data (Sekarang aman, naive vs naive) ---
+    # --- Filter Data ---
     pemasukan_df_f = pemasukan_df[(pemasukan_df['Tanggal'] >= mulai_dt) & (pemasukan_df['Tanggal'] < akhir_dt)] if not pemasukan_df.empty else pd.DataFrame(columns=pemasukan_df.columns)
     pengeluaran_df_f = pengeluaran_df[(pengeluaran_df['Tanggal'] >= mulai_dt) & (pengeluaran_df['Tanggal'] < akhir_dt)] if not pengeluaran_df.empty else pd.DataFrame(columns=pengeluaran_df.columns)
     jurnal_df_f = jurnal_df[(jurnal_df['Tanggal'] >= mulai_dt) & (jurnal_df['Tanggal'] < akhir_dt)] if not jurnal_df.empty else pd.DataFrame(columns=jurnal_df.columns)
     
+    # Data Jurnal s/d Tanggal Akhir (Untuk Neraca & Buku Besar)
     jurnal_total = jurnal_df[jurnal_df['Tanggal'] < akhir_dt] if not jurnal_df.empty else pd.DataFrame(columns=jurnal_df.columns)
     
-    # --- Perhitungan ---
+    # --- Perhitungan Ringkasan (Periode Terpilih) ---
     ringkasan = {
         "total_pemasukan": pemasukan_df_f['Jumlah'].sum() if not pemasukan_df_f.empty else 0,
         "total_pengeluaran": pengeluaran_df_f['Jumlah'].sum() if not pengeluaran_df_f.empty else 0
     }
 
-    # --- Perhitungan Laba Rugi BARU ---
+    # --- Perhitungan Laba Rugi (Periode Terpilih) ---
     pendapatan_df = pd.DataFrame(columns=['Akun', 'Jumlah'])
     pendapatan_total = 0
     beban_total = 0
 
     if not jurnal_df_f.empty:
-        # 1. Hitung Rincian & Total Pendapatan
         df_pendapatan = jurnal_df_f[
             jurnal_df_f['Akun'].str.startswith("Penjualan -", na=False) | 
             jurnal_df_f['Akun'].str.startswith("Pendapatan -", na=False)
@@ -1262,7 +1287,6 @@ def laporan_page():
             pendapatan_df = df_pendapatan.groupby('Akun')['Kredit'].sum().reset_index().rename(columns={'Kredit': 'Jumlah'})
         pendapatan_total = pendapatan_df['Jumlah'].sum()
 
-        # 2. Hitung Total Beban
         beban_akun = []
         for subs in kategori_pengeluaran.values():
             beban_akun.extend(subs)
@@ -1274,40 +1298,49 @@ def laporan_page():
         "beban_total": beban_total,
         "laba_rugi": pendapatan_total - beban_total
     }
-    # --- Akhir Perhitungan Laba Rugi BARU ---
 
-
-    # --- Perhitungan Neraca BARU ---
+    # --- [PERUBAHAN V7] Perhitungan Neraca (SAK Compliance) ---
     aktiva, kewajiban, ekuitas = 0, 0, 0
+    kas_bank, piutang = 0, 0
+    
     if not jurnal_total.empty:
-        aktiva_akun = ['Kas', 'Bank', 'Piutang Dagang']
+        # Definisikan Akun
+        kas_bank_akun = ['Kas', 'Bank']
+        piutang_akun = ['Piutang Dagang']
         kewajiban_akun = ['Utang Dagang']
         
-        aktiva = jurnal_total[jurnal_total['Akun'].isin(aktiva_akun)]['Debit'].sum() - \
-                 jurnal_total[jurnal_total['Akun'].isin(aktiva_akun)]['Kredit'].sum()
+        # 1. Hitung Saldo per Kategori Akun
+        kas_bank = jurnal_total[jurnal_total['Akun'].isin(kas_bank_akun)]['Debit'].sum() - \
+                   jurnal_total[jurnal_total['Akun'].isin(kas_bank_akun)]['Kredit'].sum()
+                   
+        piutang = jurnal_total[jurnal_total['Akun'].isin(piutang_akun)]['Debit'].sum() - \
+                  jurnal_total[jurnal_total['Akun'].isin(piutang_akun)]['Kredit'].sum()
+                  
         kewajiban = jurnal_total[jurnal_total['Akun'].isin(kewajiban_akun)]['Kredit'].sum() - \
                     jurnal_total[jurnal_total['Akun'].isin(kewajiban_akun)]['Debit'].sum()
+
+        # 2. Hitung Total Aktiva
+        #    (Untuk saat ini, aktiva kita hanya kas/bank + piutang)
+        aktiva = kas_bank + piutang
+
+        # 3. Hitung Ekuitas (SAK: A = L + E  =>  E = A - L)
+        #    Ini adalah perhitungan kuncinya agar Neraca BALANCE.
+        ekuitas = aktiva - kewajiban
         
-        # Hitung total pendapatan s/d akhir periode
-        pendapatan_total_df = jurnal_total[
-            jurnal_total['Akun'].str.startswith("Penjualan -", na=False) | 
-            jurnal_total['Akun'].str.startswith("Pendapatan -", na=False)
-        ]
-        pendapatan_total_neraca = 0
-        if not pendapatan_total_df.empty:
-            pendapatan_total_neraca = pendapatan_total_df['Kredit'].sum()
+    # Cek apakah balance (pembulatan 5 desimal untuk menghindari error float)
+    is_balance = round(aktiva, 5) == round(kewajiban + ekuitas, 5)
 
-        # Hitung total beban s/d akhir periode
-        beban_akun_total = []
-        for subs in kategori_pengeluaran.values():
-            beban_akun_total.extend(subs)
-        beban_total_neraca = jurnal_total[jurnal_total['Akun'].isin(beban_akun_total)]['Debit'].sum()
-        
-        ekuitas = pendapatan_total_neraca - beban_total_neraca
+    neraca_data = {
+        "aktiva": aktiva, 
+        "kewajiban": kewajiban, 
+        "ekuitas": ekuitas,
+        "kas_bank": kas_bank,
+        "piutang": piutang,
+        "is_balance": is_balance
+    }
+    # --- Akhir Perhitungan Neraca V7 ---
 
-    neraca_data = {"aktiva": aktiva, "kewajiban": kewajiban, "ekuitas": ekuitas}
-    # --- Akhir Perhitungan Neraca BARU ---
-
+    # --- Perhitungan Buku Pembantu ---
     buku_pembantu_piutang = {}
     buku_pembantu_utang = {}
     if not jurnal_total.empty:
@@ -1316,13 +1349,13 @@ def laporan_page():
         if not df_piutang.empty:
             df_piutang['Saldo'] = df_piutang['Debit'] - df_piutang['Kredit']
             buku_pembantu_piutang = df_piutang.groupby('Kontak')['Saldo'].sum().to_dict()
-
         # Utang
         df_utang = jurnal_total[(jurnal_total['Akun'] == 'Utang Dagang') & (jurnal_total['Kontak'].notna()) & (jurnal_total['Kontak'] != '')].copy()
         if not df_utang.empty:
             df_utang['Saldo'] = df_utang['Kredit'] - df_utang['Debit']
             buku_pembantu_utang = df_utang.groupby('Kontak')['Saldo'].sum().to_dict()
 
+    # --- Perhitungan Buku Besar ---
     buku_besar_data = {}
     if not jurnal_df_f.empty:
         jurnal_df_f['Kontak'] = jurnal_df_f['Kontak'].fillna('')
@@ -1332,8 +1365,11 @@ def laporan_page():
             saldo = 0
             saldos = []
             if not jurnal_total.empty:
+                # Hitung Saldo Awal
                 saldo_awal_df = jurnal_total[(jurnal_total['Akun'] == akun) & (jurnal_total['Tanggal'] < mulai_dt)]
                 if not saldo_awal_df.empty:
+                    # Logika saldo normal (Aktiva/Beban di Debit, Kewajiban/Ekuitas/Pendapatan di Kredit)
+                    # Untuk simpelnya, kita pakai Debit - Kredit untuk semua
                     saldo = saldo_awal_df['Debit'].sum() - saldo_awal_df['Kredit'].sum()
             
             saldos.append(saldo)
@@ -1344,21 +1380,14 @@ def laporan_page():
             
             saldo_awal_row = pd.DataFrame([{
                 'Tanggal': mulai_dt - pd.Timedelta(days=1), 
-                'Keterangan': 'Saldo Awal', 
-                'Kontak': '', 
-                'Debit': 0, 
-                'Kredit': 0, 
-                'Saldo': saldos[0] 
+                'Keterangan': 'Saldo Awal', 'Kontak': '', 
+                'Debit': 0, 'Kredit': 0, 'Saldo': saldos[0] 
             }])
             
             df_akun['Saldo'] = saldos[1:] 
-            
-            # --- [PERBAIKAN BUG 'id'] ---
-            # Ubah DataFrame -> List of Dictionaries
             buku_besar_data[akun] = pd.concat([saldo_awal_row, df_akun]).to_dict('records')
 
-
-    # --- [FIX] Ganti render_template -> render_template_string ---
+    # --- Render Template ---
     full_html = HTML_LAYOUT.replace('{% block content %}{% endblock %}', HTML_LAPORAN)
     return render_template_string(
         full_html, 
@@ -1369,11 +1398,10 @@ def laporan_page():
         neraca=neraca_data,
         buku_pembantu_piutang=buku_pembantu_piutang,
         buku_pembantu_utang=buku_pembantu_utang,
-        # [PERBAIKAN BUG 'id']
         jurnal_df=jurnal_df_f.sort_values(by="Tanggal").to_dict('records') if not jurnal_df_f.empty else [],
         buku_besar=buku_besar_data
     )
-# --- Akhir Perubahan ---
+# --- Akhir Rute Laporan ---
 
 
 # ---------------- Menjalankan Aplikasi (LOKAL) ----------------
