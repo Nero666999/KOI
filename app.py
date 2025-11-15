@@ -17,18 +17,18 @@ from flask import (
 )
 
 # --- KONEKSI KE SUPABASE ---
-SUPABASE_URL = "https://asweqitjjbepoxwpscsz.supabase.co" 
-SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFzd2VxaXRqamJlcG94d3BzY3N6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjIzMzg3NzMsImV4cCI6MjA3NzkxNDc3M30.oihrg9Pz0qa0LS5DIJzM2itIbtG0oh__PlOqx4nd2To" 
+SUPABASE_URL = os.getenv("SUPABASE_URL")
+SUPABASE_KEY = os.getenv("SUPABASE_KEY")
 
 try:
     supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
-    print("--- BERHASIL KONEK KE SUPABASE ---") 
+    print("--- BERHASIL KONEK KE SUPABASE ---")
 except Exception as e:
     print(f"--- GAGAL KONEK KE SUPABASE: {e} ---")
 # --- Akhir Koneksi ---
 
 app = Flask(__name__)
-app.secret_key = 'kunci-rahasia-lokal-saya-bebas-diisi-apa-saja'
+app.secret_key = os.getenv("SECRET_KEY", "dev-secret-fallback")
 
 # --- Fungsi Format Rupiah (Tidak berubah) ---
 def format_rupiah(value):
@@ -1403,7 +1403,3 @@ def laporan_page():
     )
 # --- Akhir Rute Laporan ---
 
-
-# ---------------- Menjalankan Aplikasi (LOKAL) ----------------
-if __name__ == "__main__":
-    app.run(debug=True, port=5001)
