@@ -1,5 +1,5 @@
-flask
-gunicorn
-supabase
+Flask
 pandas
-python-dotenv
+supabase-py
+python-dateutil
+gunicorn
