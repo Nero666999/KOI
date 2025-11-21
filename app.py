@@ -3225,7 +3225,6 @@ def logout_page():
     flash("Anda telah berhasil logout.", "success")
     return redirect(url_for('login_page'))
 
-# --- Rute Laporan (GANTI TOTAL) ---
 @app.route("/laporan", methods=["GET", "POST"])
 @login_required
 def laporan_page():
@@ -3262,7 +3261,7 @@ def laporan_page():
     chart_data = []
     now_formatted = datetime.now().strftime('%d %B %Y, %H:%M:%S')
     
-    # PASTIKAN FUNGSI filter_by_date DIPINDAH KE LUAR TRY-EXCEPT (Jika sebelumnya ada di dalam)
+    # --- Helper Lokal untuk Filtering (Diperlukan karena ada di dalam fungsi) ---
     def filter_by_date(df, start_date, end_date, date_column='Tanggal'):
         if df.empty or date_column not in df.columns: 
             return pd.DataFrame()
@@ -3274,7 +3273,8 @@ def laporan_page():
             return df.loc[mask].copy() 
         except Exception as e:
             return pd.DataFrame()
-    
+    # --- Akhir Helper Lokal ---
+
     try:
         # Handle date filter
         if request.method == "POST":
@@ -3339,7 +3339,6 @@ def laporan_page():
                 rincian_pendapatan = rincian_pendapatan.rename(columns={'Kredit': 'Jumlah'})
                 rincian_pendapatan = rincian_pendapatan[rincian_pendapatan['Jumlah'] > 0]
                 laba_rugi_data["rincian_pendapatan"] = rincian_pendapatan.to_dict('records')
-                # PERBAIKAN: Konversi sum ke float
                 laba_rugi_data["pendapatan_total"] = float(rincian_pendapatan['Jumlah'].sum())
             
             beban_akun = jurnal_df_f[
@@ -3351,11 +3350,9 @@ def laporan_page():
                 rincian_beban = rincian_beban.rename(columns={'Debit': 'Jumlah'})
                 rincian_beban = rincian_beban[rincian_beban['Jumlah'] > 0]
                 laba_rugi_data["rincian_beban"] = rincian_beban.to_dict('records')
-                # PERBAIKAN: Konversi sum ke float
                 laba_rugi_data["beban_total"] = float(rincian_beban['Jumlah'].sum())
             
             hpp_akun = jurnal_df_f[jurnal_df_f['Akun'] == 'Harga Pokok Penjualan']
-            # PERBAIKAN: Konversi sum ke float
             laba_rugi_data["hpp_total"] = float(hpp_akun['Debit'].sum()) if not hpp_akun.empty else 0.0
             
             laba_rugi_data["laba_kotor"] = laba_rugi_data["pendapatan_total"] - laba_rugi_data["hpp_total"]
@@ -3468,9 +3465,9 @@ def laporan_page():
                 if transaksi: 
                     buku_besar[akun] = transaksi
         
-        # --- PANGGIL FUNGSI AGREGASI BUKU BESAR PEMBANTU (FIX Celah 1.B) ---
+        # --- PANGGIL FUNGSI AGREGASI BUKU BESAR PEMBANTU ---
         buku_besar_pembantu = aggregate_subsidiary_ledger(jurnal_total)
-        # -------------------------------------------------------------------
+        # ---------------------------------------------------
 
         # ==================== 5. DATA GRAFIK TERINTEGRASI ====================
         if not jurnal_df.empty and 'YearMonth' in jurnal_df.columns:
